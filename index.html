@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID-Theory: Oracle Scanner</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px #00ffff;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        #status {
+            color: #ffaa00;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+            text-align: center;
+            padding: 0 10px;
+        }
+        .container {
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #111111;
+            border: 1px solid #444;
+            color: #00ffff;
+            font-size: 1.5rem;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            box-sizing: border-box;
+            outline: none;
+        }
+        input:focus {
+            border-color: #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+        .hint {
+            color: #666;
+            font-size: 0.75rem;
+            margin-bottom: 20px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #111111;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            font-size: 1.2rem;
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:hover:not(:disabled) {
+            background-color: #00ffff;
+            color: #000000;
+            box-shadow: 0 0 15px #00ffff;
+        }
+        button:disabled {
+            color: #444;
+            border-color: #444;
+            cursor: not-allowed;
+        }
+        #result-box {
+            margin-top: 40px;
+            min-height: 150px;
+        }
+        .action-text {
+            color: #aaaaaa;
+            font-size: 1rem;
+            animation: blink 0.5s infinite;
+        }
+        .family-text {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 20px #00ffff;
+            margin: 15px 0;
+        }
+        .hidden-data {
+            color: #555555;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ORACLE SCANNER</h1>
+    <div id="status">CSVデータをロード中...お待ちください</div>
+    
+    <input type="text" id="formulaInput" placeholder="e.g. C6H6, SF6, C2H6O" autocomplete="off" disabled>
+    <div class="hint">※カッコ ( ) は使わず、要素の合計数で入力してください。<br>※大文字・小文字を正確に入力してください（例: Co と CO）。</div>
+    <button id="scanBtn" onclick="runScan()" disabled>DECODE TOPOLOGY</button>
+
+    <div id="result-box"></div>
+</div>
+
+<script>
+    let SEEDS = {};
+    // 🚨 修正ポイント: ファイル名は半角英数字に変更してください！
+    const CSV_FILENAME = "coords.csv"; 
+
+    // 起動時にCSVを読み込む
+    async function loadCSV() {
+        if (window.location.protocol === 'file:') {
+            document.getElementById('status').innerText = "⚠️ ローカルファイルからは実行できません。GitHub PagesのURLからアクセスしてください。";
+            document.getElementById('status').style.color = "#ff4444";
+            return;
+        }
+
+        try {
+            const response = await fetch(CSV_FILENAME);
+            if (!response.ok) throw new Error("File not found");
+            const text = await response.text();
+            
+            const lines = text.split(/\r?\n/);
+            const headers = lines[0].replace(/^\uFEFF/, '').split(',');
+            
+            const symIdx = headers.indexOf('Symbol');
+            const yIdx = headers.indexOf('Y_Int');
+            const wIdx = headers.indexOf('W_Int');
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const cols = lines[i].split(',');
+                const symbol = cols[symIdx] ? cols[symIdx].trim() : "";
+                if (symbol) {
+                    SEEDS[symbol] = {
+                        Y: parseFloat(cols[yIdx]),
+                        W: parseFloat(cols[wIdx])
+                    };
+                }
+            }
+            
+            document.getElementById('status').innerText = `✅ 全118元素データベース接続完了`;
+            document.getElementById('status').style.color = "#00ff00";
+            document.getElementById('formulaInput').disabled = false;
+            document.getElementById('scanBtn').disabled = false;
+
+        } catch (error) {
+            document.getElementById('status').innerText = `⚠️ エラー: ${CSV_FILENAME} が見つかりません。GitHubにアップロードされていますか？`;
+            document.getElementById('status').style.color = "#ff4444";
+        }
+    }
+
+    // 化学式の文字解析
+    function parseFormula(formula) {
+        let comp = {};
+        let regex = /([A-Z][a-z]*)(\d*)/g;
+        let match;
+        while ((match = regex.exec(formula)) !== null) {
+            let element = match[1];
+            let count = match[2] ? parseInt(match[2], 10) : 1;
+            comp[element] = (comp[element] || 0) + count;
+        }
+        return comp;
+    }
+
+    // ID理論 エンジン・コア
+    function calculateTopology(formula) {
+        let comp = parseFormula(formula);
+        if (Object.keys(comp).length === 0) return { error: "解析不能な形式です。" };
+
+        let Y_sum = 0, W_sum = 0;
+        let n_C = comp['C'] || 0;
+        let n_H = comp['H'] || 0;
+        let n_N = comp['N'] || 0;
+        let n_O = comp['O'] || 0;
+        let n_X = (comp['F']||0) + (comp['Cl']||0) + (comp['Br']||0) + (comp['I']||0);
+
+        for (const [e, count] of Object.entries(comp)) {
+            if (SEEDS[e]) {
+                Y_sum += SEEDS[e].Y * count;
+                W_sum += SEEDS[e].W * count;
+            } else {
+                return { error: `未知の元素が含まれています: ${e}` };
+            }
+        }
+
+        let tension_ratio = W_sum > 0 ? Y_sum / W_sum : 1.0;
+        let folding = 0;
+
+        if (n_C === 0) {
+            folding = 4.0; 
+        } else {
+            folding = Math.max(0.0, n_C + 1 - (n_H / 2) + (n_N / 2) - (n_X / 2));
+        }
+
+        let family = "";
+        if (tension_ratio < 0.963) {
+            if (folding === 0 && n_O > 0) family = "ALCOHOL / ETHER";
+            else if (folding === 4 && n_C === 0) family = "WATER / INORGANIC";
+            else if (folding >= 1 && n_O > 0) family = "KETONE / ACID";
+            else family = "POLAR HYBRID";
+        } else {
+            if (folding >= 4 && n_C > 0) family = "AROMATIC RIGID";
+            else if (folding === 0 && n_C > 0) family = "ALKANE CHAIN";
+            else if (folding >= 1 && n_C > 0) family = "ALKENE / UNSATURATED";
+            else family = "NON-POLAR HYBRID";
+        }
+
+        return { family, tension_ratio, folding };
+    }
+
+    // スキャン実行
+    function runScan() {
+        let formula = document.getElementById('formulaInput').value.trim();
+        let resultBox = document.getElementById('result-box');
+        
+        if (formula === "") return;
+
+        let result = calculateTopology(formula);
+        
+        if (result.error) {
+            resultBox.innerHTML = `<p style='color: #ff4444;'>${result.error}</p>`;
+            return;
+        }
+
+        resultBox.innerHTML = "<div class='action-text'>Accessing Cosmic Tensors...</div>";
+        
+        setTimeout(() => {
+            resultBox.innerHTML = "<div class='action-text'>Extracting Dimensional Folding...</div>";
+        }, 500);
+
+        setTimeout(() => {
+            resultBox.innerHTML = `
+                <div style="color: #ffffff; font-size: 1.2rem; margin-bottom: 5px;">[ ${formula} ]</div>
+                <div class="family-text">${result.family}</div>
+                <div class="hidden-data">Y/W RATIO: ${result.tension_ratio.toFixed(5)} | DBE: ${result.folding.toFixed(1)}</div>
+            `;
+        }, 1200);
+    }
+
+    document.getElementById("formulaInput").addEventListener("keypress", function(event) {
+        if (event.key === "Enter" && !document.getElementById('scanBtn').disabled) {
+            event.preventDefault();
+            runScan();
+        }
+    });
+
+    window.onload = loadCSV;
+</script>
+
+</body>
+</html>
