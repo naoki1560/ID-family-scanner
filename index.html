@@ -33,7 +33,7 @@
         }
         .container {
             width: 90%;
-            max-width: 500px;
+            max-width: 600px;
             text-align: center;
         }
         input {
@@ -82,7 +82,7 @@
         }
         #result-box {
             margin-top: 40px;
-            min-height: 150px;
+            min-height: 180px;
         }
         .action-text {
             color: #aaaaaa;
@@ -94,11 +94,19 @@
             font-weight: bold;
             color: #00ffff;
             text-shadow: 0 0 20px #00ffff;
-            margin: 15px 0;
+            margin: 10px 0;
+        }
+        .dna-box {
+            background-color: #111;
+            border: 1px solid #333;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
         }
         .hidden-data {
             color: #555555;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             margin-top: 10px;
         }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
@@ -111,8 +119,8 @@
     <h1>ORACLE SCANNER</h1>
     <div id="status">CSVデータをロード中...お待ちください</div>
     
-    <input type="text" id="formulaInput" placeholder="e.g. C6H6, SF6, C2H6O" autocomplete="off" disabled>
-    <div class="hint">※カッコ ( ) は使わず、要素の合計数で入力してください。<br>※大文字・小文字を正確に入力してください（例: Co と CO）。</div>
+    <input type="text" id="formulaInput" placeholder="e.g. C6H6, CHCl3, C2H5OH" autocomplete="off" disabled>
+    <div class="hint">※カッコ()は使わず入力してください。大文字・小文字を区別します。</div>
     <button id="scanBtn" onclick="runScan()" disabled>DECODE TOPOLOGY</button>
 
     <div id="result-box"></div>
@@ -120,13 +128,12 @@
 
 <script>
     let SEEDS = {};
-    // 🚨 修正ポイント: ファイル名は半角英数字に変更してください！
-    const CSV_FILENAME = "coords.csv"; 
+    const CSV_FILENAME = "coords.csv"; // GitHubにアップロードしたファイル名
 
     // 起動時にCSVを読み込む
     async function loadCSV() {
         if (window.location.protocol === 'file:') {
-            document.getElementById('status').innerText = "⚠️ ローカルファイルからは実行できません。GitHub PagesのURLからアクセスしてください。";
+            document.getElementById('status').innerText = "⚠️ ローカルからは実行できません。GitHub PagesのURLからアクセスしてください。";
             document.getElementById('status').style.color = "#ff4444";
             return;
         }
@@ -161,12 +168,12 @@
             document.getElementById('scanBtn').disabled = false;
 
         } catch (error) {
-            document.getElementById('status').innerText = `⚠️ エラー: ${CSV_FILENAME} が見つかりません。GitHubにアップロードされていますか？`;
+            document.getElementById('status').innerText = `⚠️ エラー: ${CSV_FILENAME} が見つかりません。`;
             document.getElementById('status').style.color = "#ff4444";
         }
     }
 
-    // 化学式の文字解析
+    // 化学式のパース
     function parseFormula(formula) {
         let comp = {};
         let regex = /([A-Z][a-z]*)(\d*)/g;
@@ -179,17 +186,32 @@
         return comp;
     }
 
+    // トポロジー・アトラクター (2次元空間の基準点)
+    const ATTRACTORS = [
+        { name: "ALKANE (アルカン)", t: 0.968, f: 0, req: c => c.C > 0 },
+        { name: "AROMATIC (芳香族)", t: 0.966, f: 4, req: c => c.C > 0 },
+        { name: "ALCOHOL/ETHER (アルコール等)", t: 0.958, f: 0, req: c => c.O > 0 },
+        { name: "KETONE/ACID (ケトン等)", t: 0.961, f: 1, req: c => c.O > 0 },
+        { name: "WATER/INORGANIC (水/無機物)", t: 0.955, f: 4, req: c => c.C === 0 || c.O > 0 },
+        { name: "AMINE (アミン)", t: 0.961, f: 0, req: c => c.N > 0 },
+        { name: "NITRO (ニトロ)", t: 0.950, f: 1, req: c => c.N > 0 && c.O > 0 },
+        { name: "HALIDE (ハロゲン)", t: 0.968, f: 0, req: c => c.X > 0 },
+        { name: "ALKENE (アルケン)", t: 0.965, f: 1, req: c => c.C > 0 }
+    ];
+
     // ID理論 エンジン・コア
     function calculateTopology(formula) {
         let comp = parseFormula(formula);
         if (Object.keys(comp).length === 0) return { error: "解析不能な形式です。" };
 
         let Y_sum = 0, W_sum = 0;
-        let n_C = comp['C'] || 0;
-        let n_H = comp['H'] || 0;
-        let n_N = comp['N'] || 0;
-        let n_O = comp['O'] || 0;
-        let n_X = (comp['F']||0) + (comp['Cl']||0) + (comp['Br']||0) + (comp['I']||0);
+        let c_counts = {
+            C: comp['C'] || 0,
+            H: comp['H'] || 0,
+            N: comp['N'] || 0,
+            O: comp['O'] || 0,
+            X: (comp['F']||0) + (comp['Cl']||0) + (comp['Br']||0) + (comp['I']||0)
+        };
 
         for (const [e, count] of Object.entries(comp)) {
             if (SEEDS[e]) {
@@ -201,54 +223,59 @@
         }
 
         let tension_ratio = W_sum > 0 ? Y_sum / W_sum : 1.0;
-        let folding = 0;
+        let folding = c_counts.C === 0 ? 4.0 : Math.max(0.0, c_counts.C + 1 - (c_counts.H / 2) + (c_counts.N / 2) - (c_counts.X / 2));
 
-        if (n_C === 0) {
-            folding = 4.0; 
-        } else {
-            folding = Math.max(0.0, n_C + 1 - (n_H / 2) + (n_N / 2) - (n_X / 2));
-        }
+        // 流体トポロジー（ガウス距離）によるDNA解析
+        let weights = [];
+        let total_w = 0;
 
-        let family = "";
-        if (tension_ratio < 0.963) {
-            if (folding === 0 && n_O > 0) family = "ALCOHOL / ETHER";
-            else if (folding === 4 && n_C === 0) family = "WATER / INORGANIC";
-            else if (folding >= 1 && n_O > 0) family = "KETONE / ACID";
-            else family = "POLAR HYBRID";
-        } else {
-            if (folding >= 4 && n_C > 0) family = "AROMATIC RIGID";
-            else if (folding === 0 && n_C > 0) family = "ALKANE CHAIN";
-            else if (folding >= 1 && n_C > 0) family = "ALKENE / UNSATURATED";
-            else family = "NON-POLAR HYBRID";
-        }
+        ATTRACTORS.forEach(a => {
+            if (a.req(c_counts)) {
+                // 張力は変動幅が小さいため100倍して距離をスケール
+                let d2 = Math.pow((tension_ratio - a.t) * 100, 2) + Math.pow(folding - a.f, 2);
+                let w = Math.exp(-d2 / 2.0);
+                weights.push({ name: a.name, w: w });
+                total_w += w;
+            }
+        });
 
-        return { family, tension_ratio, folding };
+        // ％に変換してソート
+        weights.forEach(a => { a.percent = total_w > 0 ? (a.w / total_w) * 100 : 0; });
+        weights.sort((a, b) => b.percent - a.percent);
+
+        let primary_family = (weights.length > 0 && weights[0].percent > 50) ? weights[0].name.split(" ")[0] : "HYBRID TOPOLOGY";
+        if (weights.length === 0) primary_family = "UNKNOWN HYBRID";
+
+        return { family: primary_family, tension_ratio, folding, dna: weights };
     }
 
     // スキャン実行
     function runScan() {
         let formula = document.getElementById('formulaInput').value.trim();
         let resultBox = document.getElementById('result-box');
-        
         if (formula === "") return;
 
         let result = calculateTopology(formula);
-        
         if (result.error) {
             resultBox.innerHTML = `<p style='color: #ff4444;'>${result.error}</p>`;
             return;
         }
 
         resultBox.innerHTML = "<div class='action-text'>Accessing Cosmic Tensors...</div>";
-        
-        setTimeout(() => {
-            resultBox.innerHTML = "<div class='action-text'>Extracting Dimensional Folding...</div>";
-        }, 500);
+        setTimeout(() => { resultBox.innerHTML = "<div class='action-text'>Calculating Topological DNA Blend...</div>"; }, 500);
 
         setTimeout(() => {
+            // DNA（割合）のHTML生成 (トップ3まで表示)
+            let dnaHtml = result.dna.slice(0, 3).map(d => 
+                `<span style="color:#00ffff;">${d.name}</span> <span style="color:#aaa;">${d.percent.toFixed(1)}%</span>`
+            ).join(' <br> ');
+
+            if(result.dna.length === 0) dnaHtml = "<span style='color:#aaa;'>NO MATCHING ATTRACTORS</span>";
+
             resultBox.innerHTML = `
                 <div style="color: #ffffff; font-size: 1.2rem; margin-bottom: 5px;">[ ${formula} ]</div>
                 <div class="family-text">${result.family}</div>
+                <div class="dna-box">${dnaHtml}</div>
                 <div class="hidden-data">Y/W RATIO: ${result.tension_ratio.toFixed(5)} | DBE: ${result.folding.toFixed(1)}</div>
             `;
         }, 1200);
