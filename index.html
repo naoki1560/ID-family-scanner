@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ID-Theory: Oracle Scanner</title>
+    <title>分子トポロジー解析ツール (Molecular Topology Analyzer)</title>
     <style>
         body {
-            background-color: #050505;
+            background-color: #0a0c10;
             color: #ffffff;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -18,15 +18,16 @@
             overflow: hidden;
         }
         h1 {
-            letter-spacing: 4px;
-            text-shadow: 0 0 10px #00ffff;
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+            color: #e2e8f0;
             text-align: center;
             margin-bottom: 5px;
         }
         #status {
-            color: #ffaa00;
-            font-size: 0.8rem;
-            margin-bottom: 10px;
+            color: #cca43b;
+            font-size: 0.85rem;
+            margin-bottom: 25px;
             animation: pulse 2s infinite;
             text-align: center;
             padding: 0 10px;
@@ -35,106 +36,113 @@
             width: 90%;
             max-width: 600px;
             text-align: center;
+            background-color: #1a1f26;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
         input {
             width: 100%;
-            padding: 15px;
+            padding: 12px;
             margin: 10px 0;
-            background-color: #111111;
-            border: 1px solid #444;
-            color: #00ffff;
-            font-size: 1.5rem;
+            background-color: #0f131a;
+            border: 1px solid #3b4252;
+            border-radius: 4px;
+            color: #88c0d0;
+            font-size: 1.4rem;
             text-align: center;
-            font-family: 'Courier New', Courier, monospace;
             box-sizing: border-box;
             outline: none;
+            font-family: "Courier New", Courier, monospace;
         }
         input:focus {
-            border-color: #00ffff;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+            border-color: #88c0d0;
+            box-shadow: 0 0 8px rgba(136, 192, 208, 0.2);
         }
         .hint {
-            color: #666;
-            font-size: 0.75rem;
+            color: #7b88a1;
+            font-size: 0.8rem;
             margin-bottom: 20px;
+            line-height: 1.4;
         }
         button {
             width: 100%;
-            padding: 15px;
-            background-color: #111111;
-            color: #00ffff;
-            border: 1px solid #00ffff;
-            font-size: 1.2rem;
-            font-family: 'Courier New', Courier, monospace;
-            letter-spacing: 2px;
+            padding: 14px;
+            background-color: #88c0d0;
+            color: #2e3440;
+            border: none;
+            border-radius: 4px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
         button:hover:not(:disabled) {
-            background-color: #00ffff;
-            color: #000000;
-            box-shadow: 0 0 15px #00ffff;
+            background-color: #8fbcbb;
+            box-shadow: 0 0 12px rgba(136, 192, 208, 0.3);
         }
         button:disabled {
-            color: #444;
-            border-color: #444;
+            background-color: #3b4252;
+            color: #4c566a;
             cursor: not-allowed;
         }
         #result-box {
-            margin-top: 40px;
+            margin-top: 30px;
             min-height: 180px;
         }
         .action-text {
-            color: #aaaaaa;
-            font-size: 1rem;
+            color: #d8dee9;
+            font-size: 0.95rem;
             animation: blink 0.5s infinite;
         }
         .family-text {
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: bold;
-            color: #00ffff;
-            text-shadow: 0 0 20px #00ffff;
+            color: #88c0d0;
             margin: 10px 0;
         }
         .dna-box {
-            background-color: #111;
-            border: 1px solid #333;
-            padding: 10px;
-            margin: 10px 0;
-            font-size: 0.85rem;
+            background-color: #0f131a;
+            border: 1px solid #3b4252;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.9rem;
             line-height: 1.6;
+            text-align: left;
         }
         .hidden-data {
-            color: #555555;
-            font-size: 0.75rem;
+            color: #64748b;
+            font-size: 0.8rem;
             margin-top: 10px;
         }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>ORACLE SCANNER</h1>
-    <div id="status">CSVデータをロード中...お待ちください</div>
+    <h1>分子トポロジー解析ツール</h1>
+    <div id="status">データベースを読込中...お待ちください</div>
     
     <input type="text" id="formulaInput" placeholder="e.g. C6H6, CHCl3, C2H5OH" autocomplete="off" disabled>
-    <div class="hint">※カッコ()は使わず入力してください。大文字・小文字を区別します。</div>
-    <button id="scanBtn" onclick="runScan()" disabled>DECODE TOPOLOGY</button>
+    <div class="hint">※カッコ()は使わず、要素の合計数で入力してください（例: C2H6O）。<br>※元素記号の大文字・小文字は正確に区別されます（例: Co と CO）。</div>
+    <button id="scanBtn" onclick="runScan()" disabled>トポロジー解析を実行</button>
 
     <div id="result-box"></div>
 </div>
 
 <script>
     let SEEDS = {};
-    const CSV_FILENAME = "coords.csv"; // GitHubにアップロードしたファイル名
+    const CSV_FILENAME = "coords.csv"; // 118元素のCSVファイル名
 
     // 起動時にCSVを読み込む
     async function loadCSV() {
         if (window.location.protocol === 'file:') {
             document.getElementById('status').innerText = "⚠️ ローカルからは実行できません。GitHub PagesのURLからアクセスしてください。";
-            document.getElementById('status').style.color = "#ff4444";
+            document.getElementById('status').style.color = "#bf616a";
             return;
         }
 
@@ -143,8 +151,10 @@
             if (!response.ok) throw new Error("File not found");
             const text = await response.text();
             
-            const lines = text.split(/\r?\n/);
-            const headers = lines[0].replace(/^\uFEFF/, '').split(',');
+            const lines = text.split(/
+?
+/);
+            const headers = lines[0].replace(/^﻿/, '').split(',');
             
             const symIdx = headers.indexOf('Symbol');
             const yIdx = headers.indexOf('Y_Int');
@@ -162,14 +172,14 @@
                 }
             }
             
-            document.getElementById('status').innerText = `✅ 全118元素データベース接続完了`;
-            document.getElementById('status').style.color = "#00ff00";
+            document.getElementById('status').innerText = `✅ 118元素データベースの読み込みが完了しました`;
+            document.getElementById('status').style.color = "#a3be8c";
             document.getElementById('formulaInput').disabled = false;
             document.getElementById('scanBtn').disabled = false;
 
         } catch (error) {
-            document.getElementById('status').innerText = `⚠️ エラー: ${CSV_FILENAME} が見つかりません。`;
-            document.getElementById('status').style.color = "#ff4444";
+            document.getElementById('status').innerText = `⚠️ エラー: ${CSV_FILENAME} が見つかりません。リポジトリに正しく配置されているかご確認ください。`;
+            document.getElementById('status').style.color = "#bf616a";
         }
     }
 
@@ -199,7 +209,7 @@
         { name: "ALKENE (アルケン)", t: 0.965, f: 1, req: c => c.C > 0 }
     ];
 
-    // ID理論 エンジン・コア
+    // 解析エンジン・コア
     function calculateTopology(formula) {
         let comp = parseFormula(formula);
         if (Object.keys(comp).length === 0) return { error: "解析不能な形式です。" };
@@ -225,13 +235,12 @@
         let tension_ratio = W_sum > 0 ? Y_sum / W_sum : 1.0;
         let folding = c_counts.C === 0 ? 4.0 : Math.max(0.0, c_counts.C + 1 - (c_counts.H / 2) + (c_counts.N / 2) - (c_counts.X / 2));
 
-        // 流体トポロジー（ガウス距離）によるDNA解析
+        // 流体トポロジー（ガウス距離）による分析
         let weights = [];
         let total_w = 0;
 
         ATTRACTORS.forEach(a => {
             if (a.req(c_counts)) {
-                // 張力は変動幅が小さいため100倍して距離をスケール
                 let d2 = Math.pow((tension_ratio - a.t) * 100, 2) + Math.pow(folding - a.f, 2);
                 let w = Math.exp(-d2 / 2.0);
                 weights.push({ name: a.name, w: w });
@@ -240,43 +249,61 @@
         });
 
         // ％に変換してソート
-        weights.forEach(a => { a.percent = total_w > 0 ? (a.w / total_w) * 100 : 0; });
-        weights.sort((a, b) => b.percent - a.percent);
+        let dnas = [];
+        weights.forEach(item => {
+            let pct = total_w > 0 ? (item.w / total_w) * 100 : 0;
+            dnas.push({ name: item.name, pct: pct });
+        });
 
-        let primary_family = (weights.length > 0 && weights[0].percent > 50) ? weights[0].name.split(" ")[0] : "HYBRID TOPOLOGY";
-        if (weights.length === 0) primary_family = "UNKNOWN HYBRID";
+        // パーセンテージの高い順に並び替え
+        dnas.sort((a, b) => b.pct - a.pct);
 
-        return { family: primary_family, tension_ratio, folding, dna: weights };
+        // 最も確率の高い化学族を決定
+        let oracleFamily = dnas.length > 0 && dnas[0].pct > 0 ? dnas[0].name.split(' ')[0] : "UNKNOWN";
+
+        return {
+            oracle: oracleFamily,
+            dna: dnas,
+            tension: tension_ratio,
+            folding: folding
+        };
     }
 
-    // スキャン実行
+    // スキャン実行と結果の描画
     function runScan() {
-        let formula = document.getElementById('formulaInput').value.trim();
-        let resultBox = document.getElementById('result-box');
-        if (formula === "") return;
-
-        let result = calculateTopology(formula);
-        if (result.error) {
-            resultBox.innerHTML = `<p style='color: #ff4444;'>${result.error}</p>`;
+        const input = document.getElementById('formulaInput').value.trim();
+        const resultBox = document.getElementById('result-box');
+        
+        if (!input) {
+            resultBox.innerHTML = `<div class="action-text" style="color: #bf616a;">分子式を入力してください。</div>`;
             return;
         }
 
-        resultBox.innerHTML = "<div class='action-text'>Accessing Cosmic Tensors...</div>";
-        setTimeout(() => { resultBox.innerHTML = "<div class='action-text'>Calculating Topological DNA Blend...</div>"; }, 500);
+        resultBox.innerHTML = `<div class="action-text">分子トポロジーを解析中...</div>`;
 
+        // 近未来的な演出用のわずかなディレイ
         setTimeout(() => {
-            // DNA（割合）のHTML生成 (トップ3まで表示)
-            let dnaHtml = result.dna.slice(0, 3).map(d => 
-                `<span style="color:#00ffff;">${d.name}</span> <span style="color:#aaa;">${d.percent.toFixed(1)}%</span>`
-            ).join(' <br> ');
+            const res = calculateTopology(input);
 
-            if(result.dna.length === 0) dnaHtml = "<span style='color:#aaa;'>NO MATCHING ATTRACTORS</span>";
+            if (res.error) {
+                resultBox.innerHTML = `<div class="action-text" style="color: #bf616a;">⚠️ ${res.error}</div>`;
+                return;
+            }
+
+            // 構造組成ブレンド（例: ALKANE (アルカン)(52.5%) / ALKENE...）
+            let dnaStrings = res.dna.map(item => `${item.name}(${item.pct.toFixed(1)}%)`);
+            let dnaText = dnaStrings.join(' / ');
 
             resultBox.innerHTML = `
-                <div style="color: #ffffff; font-size: 1.2rem; margin-bottom: 5px;">[ ${formula} ]</div>
-                <div class="family-text">${result.family}</div>
-                <div class="dna-box">${dnaHtml}</div>
-                <div class="hidden-data">Y/W RATIO: ${result.tension_ratio.toFixed(5)} | DBE: ${result.folding.toFixed(1)}</div>
+                <div class="action-text" style="animation: none; color: #7b88a1;">判定された化学族 (Chemical Family):</div>
+                <div class="family-text">${res.oracle}</div>
+                <div class="dna-box">
+                    <strong style="color: #e5e9f0;">構造組成ブレンド (Structure Blend):</strong><br>
+                    <span style="color: #88c0d0; font-size: 0.85rem; word-break: break-all;">${dnaText}</span>
+                </div>
+                <div class="hidden-data">
+                    張力比 (Y/W RATIO): ${res.tension.toFixed(5)} | 不飽和度 (DBE): ${res.folding.toFixed(1)}
+                </div>
             `;
         }, 1200);
     }
